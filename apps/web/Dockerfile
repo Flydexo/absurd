@@ -32,8 +32,7 @@ COPY --from=builder /app/apps/web/public ./apps/web/public
 COPY --from=builder --chown=nextjs:nodejs /app/apps/web/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/apps/web/.next/static ./apps/web/.next/static
 
-# Migration script and generated SQL files
-COPY --from=builder --chown=nextjs:nodejs /app/packages/db/src/migrate.ts ./packages/db/src/migrate.ts
+# Migration SQL files (used by instrumentation.ts on startup)
 COPY --from=builder --chown=nextjs:nodejs /app/packages/db/drizzle ./packages/db/drizzle
 
 USER nextjs
@@ -41,5 +40,4 @@ USER nextjs
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
-# Run migrations then start the server
-CMD ["sh", "-c", "bun run ./packages/db/src/migrate.ts && bun run ./apps/web/server.js"]
+CMD ["bun", "run", "./apps/web/server.js"]
