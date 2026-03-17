@@ -3,13 +3,11 @@ export async function register() {
     const { default: postgres } = await import("postgres");
     const { drizzle } = await import("drizzle-orm/postgres-js");
     const { migrate } = await import("drizzle-orm/postgres-js/migrator");
-    const { join } = await import("path");
-
     const client = postgres(process.env.POSTGRES_URL!, { max: 1 });
     const db = drizzle(client);
 
     await migrate(db, {
-      migrationsFolder: join(process.cwd(), "packages/db/drizzle"),
+      migrationsFolder: "/app/packages/db/drizzle",
     });
 
     // Create TimescaleDB hypertable if not already done
