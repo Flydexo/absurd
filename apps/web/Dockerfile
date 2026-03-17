@@ -8,7 +8,7 @@ COPY apps/web/package.json ./apps/web/
 COPY packages/db/package.json ./packages/db/
 COPY packages/types/package.json ./packages/types/
 
-RUN bun install --frozen-lockfile
+RUN bun install
 
 # Stage 2: builder
 FROM oven/bun:1 AS builder

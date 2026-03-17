@@ -13,9 +13,7 @@ const withPWA = withPWAInit({
 const nextConfig: NextConfig = {
   output: "standalone",
   transpilePackages: ["@absurd/db", "@absurd/types"],
-  experimental: {
-    serverComponentsExternalPackages: ["postgres"],
-  },
+  serverExternalPackages: ["postgres"],
 };
 
 export default withPWA(nextConfig);
