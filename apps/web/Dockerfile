@@ -1,22 +1,12 @@
-# Stage 1: deps
-FROM oven/bun:1 AS deps
-WORKDIR /app
-
-# Copy workspace manifests
-COPY package.json bun.lockb* ./
-COPY apps/web/package.json ./apps/web/
-COPY packages/db/package.json ./packages/db/
-COPY packages/types/package.json ./packages/types/
-
-RUN bun install
-
-# Stage 2: builder
+# Stage 1: builder — install + build with full monorepo context
 FROM oven/bun:1 AS builder
 WORKDIR /app
 
-COPY --from=deps /app/node_modules ./node_modules
-COPY --from=deps /app/apps/web/node_modules ./apps/web/node_modules
+# Copy entire monorepo
 COPY . .
+
+# Install with full workspace source present so symlinks resolve correctly
+RUN bun install
 
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
@@ -24,7 +14,7 @@ ENV NEXT_TELEMETRY_DISABLED=1
 WORKDIR /app/apps/web
 RUN bun run build
 
-# Stage 3: runner
+# Stage 2: runner — lean production image
 FROM oven/bun:1-slim AS runner
 WORKDIR /app
 
