@@ -20,12 +20,6 @@ services:
       - "3000:3000"
     networks:
       - stoa-network
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
 
   db:
     image: timescale/timescaledb:2.17.2-pg16
@@ -38,12 +32,6 @@ services:
       - db-data:/var/lib/postgresql/data
     networks:
       - stoa-network
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-absurd}"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-      start_period: 30s
 
 volumes:
   db-data:
