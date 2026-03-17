@@ -1,12 +1,15 @@
 import NextAuth from "next-auth";
 import GitHub from "next-auth/providers/github";
 import { DrizzleAdapter } from "@auth/drizzle-adapter";
-import { db, users, invites } from "@absurd/db";
+import { db, users, accounts, sessions, verificationTokens, invites } from "@absurd/db";
 import { eq, count } from "drizzle-orm";
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   adapter: DrizzleAdapter(db, {
     usersTable: users,
+    accountsTable: accounts,
+    sessionsTable: sessions,
+    verificationTokensTable: verificationTokens,
   }),
   providers: [
     GitHub({
