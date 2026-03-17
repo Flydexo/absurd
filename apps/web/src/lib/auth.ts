@@ -5,6 +5,7 @@ import { db, users, accounts, sessions, verificationTokens, invites } from "@abs
 import { eq, count } from "drizzle-orm";
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
+  trustHost: true,
   adapter: DrizzleAdapter(db, {
     usersTable: users,
     accountsTable: accounts,
