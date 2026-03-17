@@ -2,10 +2,7 @@
 FROM oven/bun:1 AS builder
 WORKDIR /app
 
-# Copy entire monorepo
 COPY . .
-
-# Install with full workspace source present so symlinks resolve correctly
 RUN bun install
 
 ENV NODE_ENV=production
@@ -24,13 +21,14 @@ ENV NEXT_TELEMETRY_DISABLED=1
 RUN groupadd --system --gid 1001 nodejs && \
     useradd --system --uid 1001 --gid nodejs nextjs
 
-COPY --from=builder /app/apps/web/public ./public
+# Standalone output mirrors the monorepo tree: server.js is at apps/web/server.js
+COPY --from=builder /app/apps/web/public ./apps/web/public
 COPY --from=builder --chown=nextjs:nodejs /app/apps/web/.next/standalone ./
-COPY --from=builder --chown=nextjs:nodejs /app/apps/web/.next/static ./.next/static
+COPY --from=builder --chown=nextjs:nodejs /app/apps/web/.next/static ./apps/web/.next/static
 
 USER nextjs
 
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
-CMD ["bun", "run", "./server.js"]
+CMD ["bun", "run", "./apps/web/server.js"]

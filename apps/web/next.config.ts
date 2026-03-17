@@ -1,5 +1,6 @@
 import type { NextConfig } from "next";
 import withPWAInit from "@ducanh2912/next-pwa";
+import path from "path";
 
 const withPWA = withPWAInit({
   dest: "public",
@@ -12,6 +13,9 @@ const withPWA = withPWAInit({
 
 const nextConfig: NextConfig = {
   output: "standalone",
+  // Tell Next.js the monorepo root so standalone mirrors the full path tree.
+  // Without this, server.js ends up at apps/web/server.js inside standalone.
+  outputFileTracingRoot: path.join(__dirname, "../../"),
   transpilePackages: ["@absurd/db", "@absurd/types"],
   serverExternalPackages: ["postgres"],
 };

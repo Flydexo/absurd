@@ -3,34 +3,59 @@ services:
     build:
       context: .
       dockerfile: apps/web/Dockerfile
+    restart: always
     environment:
-      - NODE_ENV=production
-      - POSTGRES_URL=${POSTGRES_URL}
-      - AUTH_SECRET=${AUTH_SECRET}
-      - AUTH_GITHUB_ID=${AUTH_GITHUB_ID}
-      - AUTH_GITHUB_SECRET=${AUTH_GITHUB_SECRET}
-      - NEXTAUTH_URL=${NEXTAUTH_URL}
-      - ADMIN_GITHUB_USERNAME=${ADMIN_GITHUB_USERNAME}
+      NODE_ENV: production
+      POSTGRES_URL: ${POSTGRES_URL:?Set the full PostgreSQL connection URL (postgresql://user:pass@db:5432/absurd)}
+      AUTH_SECRET: ${AUTH_SECRET:?Set a secure random secret (openssl rand -base64 32)}
+      AUTH_GITHUB_ID: ${AUTH_GITHUB_ID:?Set GitHub OAuth App client ID}
+      AUTH_GITHUB_SECRET: ${AUTH_GITHUB_SECRET:?Set GitHub OAuth App client secret}
+      NEXTAUTH_URL: ${NEXTAUTH_URL:?Set the public URL of the app (https://yourdomain.com)}
+      ADMIN_GITHUB_USERNAME: ${ADMIN_GITHUB_USERNAME:-}
     depends_on:
       db:
         condition: service_healthy
-    restart: unless-stopped
+    networks:
+      - absurd-net
+      - dokploy-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.absurd.rule=Host(`${ABSURD_DOMAIN}`)"
+      - "traefik.http.routers.absurd.entrypoints=websecure"
+      - "traefik.http.routers.absurd.tls.certresolver=letsencrypt"
+      - "traefik.http.services.absurd.loadbalancer.server.port=3000"
+      - "traefik.docker.network=dokploy-network"
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3000 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
 
   db:
-    image: timescale/timescaledb:latest-pg16
+    image: timescale/timescaledb:2.17.2-pg16
+    restart: always
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-absurd}
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set database password}
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - db-data:/var/lib/postgresql/data
+    networks:
+      - absurd-net
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-absurd}"]
-      interval: 5s
+      interval: 10s
       timeout: 5s
       retries: 10
-    restart: unless-stopped
+      start_period: 30s
 
 volumes:
-  pgdata:
+  db-data:
     driver: local
+
+networks:
+  absurd-net:
+    driver: bridge
+  dokploy-network:
+    external: true
