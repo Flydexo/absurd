@@ -2,6 +2,7 @@ import { z } from "zod";
 import { router, protectedProcedure } from "../trpc";
 import { dataPoints, metrics } from "@absurd/db";
 import { eq, and, gte, lte, desc, sql } from "drizzle-orm";
+import { randomUUID } from "crypto";
 
 export const dataPointsRouter = router({
   range: protectedProcedure
@@ -92,6 +93,93 @@ export const dataPointsRouter = router({
       );
 
       return summaries;
+    }),
+
+  seedDummyData: protectedProcedure
+    .input(z.object({ days: z.number().int().min(7).max(365).default(30) }))
+    .mutation(async ({ ctx, input }) => {
+      const userId = ctx.userId;
+
+      // Get or create default metrics
+      let userMetrics = await ctx.db.query.metrics.findMany({
+        where: eq(metrics.userId, userId),
+      });
+
+      if (userMetrics.length === 0) {
+        const defaults = [
+          { name: "Mood", unit: "/10", color: "#f59e0b" },
+          { name: "Sleep", unit: "hrs", color: "#6366f1" },
+          { name: "Weight", unit: "kg", color: "#22c55e" },
+          { name: "Focus", unit: "hrs", color: "#14b8a6" },
+          { name: "Revenue", unit: "$", color: "#ec4899" },
+        ];
+        await ctx.db.insert(metrics).values(
+          defaults.map((d) => ({ id: randomUUID(), userId, ...d }))
+        );
+        userMetrics = await ctx.db.query.metrics.findMany({
+          where: eq(metrics.userId, userId),
+        });
+      }
+
+      // Delete existing data in the seeded range
+      const from = new Date();
+      from.setDate(from.getDate() - input.days);
+      await ctx.db
+        .delete(dataPoints)
+        .where(and(eq(dataPoints.userId, userId), gte(dataPoints.time, from)));
+
+      // Generate correlated random walk data
+      function clamp(v: number, min: number, max: number) {
+        return Math.min(max, Math.max(min, v));
+      }
+
+      const points: (typeof dataPoints.$inferInsert)[] = [];
+      const now = new Date();
+
+      // Per-metric state
+      const state: Record<string, number> = {};
+      const configs: Record<string, { base: number; min: number; max: number; spread: number }> = {
+        Mood: { base: 6.5, min: 1, max: 10, spread: 0.6 },
+        Sleep: { base: 7.2, min: 4, max: 10, spread: 0.75 },
+        Weight: { base: 78, min: 70, max: 85, spread: 0.15 },
+        Focus: { base: 4.5, min: 0, max: 10, spread: 0.5 },
+        Revenue: { base: 150, min: 0, max: 800, spread: 20 },
+      };
+
+      for (const m of userMetrics) {
+        const cfg = configs[m.name] ?? { base: 50, min: 0, max: 100, spread: 5 };
+        state[m.id] = cfg.base;
+      }
+
+      for (let d = input.days - 1; d >= 0; d--) {
+        const date = new Date(now);
+        date.setDate(date.getDate() - d);
+        date.setHours(9, 0, 0, 0);
+        const isWeekend = date.getDay() === 0 || date.getDay() === 6;
+
+        for (const m of userMetrics) {
+          const cfg = configs[m.name] ?? { base: 50, min: 0, max: 100, spread: 5 };
+          let val = state[m.id];
+          val = clamp(val + (Math.random() - 0.5) * cfg.spread * 2, cfg.min, cfg.max);
+          if ((m.name === "Revenue" || m.name === "Focus") && isWeekend) {
+            val = clamp(val * 0.2, cfg.min, cfg.max);
+          }
+          state[m.id] = val;
+          points.push({
+            time: date,
+            metricId: m.id,
+            userId,
+            value: parseFloat(val.toFixed(1)),
+          });
+        }
+      }
+
+      const batchSize = 100;
+      for (let i = 0; i < points.length; i += batchSize) {
+        await ctx.db.insert(dataPoints).values(points.slice(i, i + batchSize));
+      }
+
+      return { inserted: points.length, metrics: userMetrics.length, days: input.days };
     }),
 
   // Pearson correlation between two metrics over N days

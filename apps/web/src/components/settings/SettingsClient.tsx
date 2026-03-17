@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { trpc } from "@/lib/trpc/client";
+import { useRouter } from "next/navigation";
 
 function Section({
   title,
@@ -32,6 +33,18 @@ function Section({
 }
 
 export function SettingsClient() {
+  const router = useRouter();
+
+  // Seed
+  const [seedDays, setSeedDays] = useState(30);
+  const [seedResult, setSeedResult] = useState<string | null>(null);
+  const seedData = trpc.dataPoints.seedDummyData.useMutation({
+    onSuccess: (data) => {
+      setSeedResult(`Seeded ${data.inserted} points across ${data.metrics} metrics (${data.days} days).`);
+      router.refresh();
+    },
+  });
+
   // North Star
   const { data: northStar, refetch: refetchNorthStar } = trpc.northStar.get.useQuery();
   const { data: metrics } = trpc.metrics.list.useQuery();
@@ -55,6 +68,59 @@ export function SettingsClient() {
 
   return (
     <div>
+      {/* Dummy Data */}
+      <Section title="Dummy Data">
+        <p style={{ fontSize: "11px", color: "var(--text-muted)", marginBottom: "12px" }}>
+          Seed your account with realistic dummy data. If you have no metrics yet, default ones will be created (Mood, Sleep, Weight, Focus, Revenue).
+          Existing data in the selected range will be replaced.
+        </p>
+        <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+          <select
+            value={seedDays}
+            onChange={(e) => setSeedDays(Number(e.target.value))}
+            style={{
+              padding: "7px 10px",
+              background: "var(--surface)",
+              border: "1px solid var(--border)",
+              color: "var(--text)",
+              fontFamily: "IBM Plex Mono",
+              fontSize: "12px",
+              outline: "none",
+            }}
+          >
+            {[7, 14, 30, 60, 90].map((d) => (
+              <option key={d} value={d}>{d} days</option>
+            ))}
+          </select>
+          <button
+            onClick={() => { setSeedResult(null); seedData.mutate({ days: seedDays }); }}
+            disabled={seedData.isPending}
+            style={{
+              padding: "7px 16px",
+              background: "var(--accent)",
+              color: "#000",
+              border: "none",
+              cursor: "pointer",
+              fontFamily: "IBM Plex Mono",
+              fontSize: "11px",
+              fontWeight: 700,
+              letterSpacing: "0.05em",
+              opacity: seedData.isPending ? 0.5 : 1,
+            }}
+          >
+            {seedData.isPending ? "SEEDING..." : "SEED DATA"}
+          </button>
+        </div>
+        {seedResult && (
+          <p style={{ fontSize: "11px", color: "var(--positive)", marginTop: "8px" }}>{seedResult}</p>
+        )}
+        {seedData.isError && (
+          <p style={{ fontSize: "11px", color: "var(--negative)", marginTop: "8px" }}>
+            {seedData.error.message}
+          </p>
+        )}
+      </Section>
+
       {/* North Star */}
       <Section title="North Star Metric">
         <p
