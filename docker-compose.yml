@@ -49,7 +49,3 @@ volumes:
 networks:
   stoa-network:
     driver: bridge
-
-networks:
-  dokploy-network:
-    external: true
