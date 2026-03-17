@@ -20,9 +20,18 @@ services:
       - dokploy-network
     labels:
       - "traefik.enable=true"
+      # HTTP → HTTPS redirect
+      - "traefik.http.routers.absurd-http.rule=Host(`${ABSURD_DOMAIN}`)"
+      - "traefik.http.routers.absurd-http.entrypoints=web"
+      - "traefik.http.routers.absurd-http.middlewares=absurd-https-redirect"
+      - "traefik.http.middlewares.absurd-https-redirect.redirectscheme.scheme=https"
+      - "traefik.http.middlewares.absurd-https-redirect.redirectscheme.permanent=true"
+      # HTTPS router
       - "traefik.http.routers.absurd.rule=Host(`${ABSURD_DOMAIN}`)"
       - "traefik.http.routers.absurd.entrypoints=websecure"
       - "traefik.http.routers.absurd.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.absurd.service=absurd"
+      # Service
       - "traefik.http.services.absurd.loadbalancer.server.port=3000"
       - "traefik.docker.network=dokploy-network"
     healthcheck:
