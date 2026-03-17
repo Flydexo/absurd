@@ -5,6 +5,10 @@ WORKDIR /app
 COPY . .
 RUN bun install
 
+# Generate DB migration files (no DB connection needed, reads schema TS only)
+WORKDIR /app/packages/db
+RUN POSTGRES_URL=postgresql://x:x@x/x bun run db:generate
+
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 
@@ -28,9 +32,14 @@ COPY --from=builder /app/apps/web/public ./apps/web/public
 COPY --from=builder --chown=nextjs:nodejs /app/apps/web/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/apps/web/.next/static ./apps/web/.next/static
 
+# Migration script and generated SQL files
+COPY --from=builder --chown=nextjs:nodejs /app/packages/db/src/migrate.ts ./packages/db/src/migrate.ts
+COPY --from=builder --chown=nextjs:nodejs /app/packages/db/drizzle ./packages/db/drizzle
+
 USER nextjs
 
 ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
-CMD ["bun", "run", "./apps/web/server.js"]
+# Run migrations then start the server
+CMD ["sh", "-c", "bun run ./packages/db/src/migrate.ts && bun run ./apps/web/server.js"]
