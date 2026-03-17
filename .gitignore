@@ -38,7 +38,7 @@ yarn-error.log*
 bun-debug.log*
 
 # Drizzle
-drizzle/
+# drizzle/ — migration files must be committed
 
 # Docker volumes / overrides
 docker-compose.override.yml

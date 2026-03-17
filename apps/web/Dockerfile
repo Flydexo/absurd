@@ -5,10 +5,6 @@ WORKDIR /app
 COPY . .
 RUN bun install
 
-# Generate DB migration files (no DB connection needed, reads schema TS only)
-WORKDIR /app/packages/db
-RUN POSTGRES_URL=postgresql://x:x@x/x bun run db:generate
-
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 
