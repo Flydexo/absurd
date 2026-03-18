@@ -182,6 +182,72 @@ export const dataPointsRouter = router({
       return { inserted: points.length, metrics: userMetrics.length, days: input.days };
     }),
 
+  bulkInsert: protectedProcedure
+    .input(
+      z.object({
+        points: z
+          .array(
+            z.object({
+              metricId: z.string(),
+              time: z.date(),
+              value: z.number(),
+            })
+          )
+          .max(2000),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const userId = ctx.userId;
+
+      // Verify all metricIds belong to this user
+      const userMetrics = await ctx.db.query.metrics.findMany({
+        where: eq(metrics.userId, userId),
+      });
+      const validIds = new Set(userMetrics.map((m) => m.id));
+      const filtered = input.points.filter((p) => validIds.has(p.metricId));
+
+      if (filtered.length === 0) return { inserted: 0 };
+
+      // Upsert: delete existing points at the exact same (metricId, day) slots
+      // Group by metricId + day to build targeted deletes
+      const slots = new Map<string, { metricId: string; day: Date }>();
+      for (const p of filtered) {
+        const day = new Date(p.time);
+        day.setHours(0, 0, 0, 0);
+        const key = `${p.metricId}::${day.toISOString()}`;
+        if (!slots.has(key)) slots.set(key, { metricId: p.metricId, day });
+      }
+
+      for (const { metricId, day } of slots.values()) {
+        const dayEnd = new Date(day);
+        dayEnd.setHours(23, 59, 59, 999);
+        await ctx.db
+          .delete(dataPoints)
+          .where(
+            and(
+              eq(dataPoints.userId, userId),
+              eq(dataPoints.metricId, metricId),
+              gte(dataPoints.time, day),
+              lte(dataPoints.time, dayEnd)
+            )
+          );
+      }
+
+      const rows = filtered.map((p) => ({
+        time: p.time,
+        metricId: p.metricId,
+        userId,
+        value: p.value,
+      }));
+
+      const batchSize = 500;
+      for (let i = 0; i < rows.length; i += batchSize) {
+        await ctx.db.insert(dataPoints).values(rows.slice(i, i + batchSize));
+      }
+
+      return { inserted: rows.length };
+    }),
+
   // Pearson correlation between two metrics over N days
   correlation: protectedProcedure
     .input(

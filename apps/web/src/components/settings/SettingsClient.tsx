@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { trpc } from "@/lib/trpc/client";
 import { useRouter } from "next/navigation";
+import { AppleHealthImport } from "./AppleHealthImport";
 
 function Section({
   title,
@@ -182,6 +183,11 @@ export function SettingsClient() {
             No metrics defined yet.
           </p>
         )}
+      </Section>
+
+      {/* Apple Health Import */}
+      <Section title="Apple Health Import">
+        <AppleHealthImport userMetrics={metrics ?? []} />
       </Section>
 
       {/* Invites */}
