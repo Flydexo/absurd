@@ -6,6 +6,7 @@ import { NorthStarPanel } from "./NorthStarPanel";
 import { MetricGrid } from "./MetricGrid";
 import { CorrelationTable } from "./CorrelationTable";
 import { TimeRangeSelector } from "./TimeRangeSelector";
+import { StateOfMindPanel } from "./StateOfMindPanel";
 import { getTimeRangeDays } from "@/lib/utils";
 import type { TimeRange } from "@absurd/types";
 
@@ -85,6 +86,9 @@ export function DashboardClient() {
               </a>
             </div>
           )}
+
+          {/* State of Mind */}
+          <StateOfMindPanel />
 
           {/* Metrics grid */}
           <div style={{ padding: "1px 0" }}>

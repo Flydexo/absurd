@@ -48,6 +48,11 @@ const AH_TYPES: Record<
     unit: "hrs",
     agg: "sleep",
   },
+  HKStateOfMind: {
+    label: "State of Mind",
+    unit: "/10",
+    agg: "avg",
+  },
 };
 
 type DayAgg = { sum: number; count: number; sleepHours: number };
@@ -80,7 +85,9 @@ async function parseFile(
     const lines = (lastNL === -1 ? "" : text.slice(0, lastNL + 1)).split("\n");
 
     for (const line of lines) {
-      if (!line.includes("<Record ")) continue;
+      if (!line.includes("<Record ") && !line.includes('type="HKStateOfMind"'))
+        continue;
+      if (!line.includes("type=")) continue;
       const type = getAttr(line, "type");
       if (!type || !AH_TYPES[type]) continue;
 
@@ -113,6 +120,15 @@ async function parseFile(
         if (!data[type][sleepDay])
           data[type][sleepDay] = { sum: 0, count: 0, sleepHours: 0 };
         data[type][sleepDay].sleepHours += hrs;
+      } else if (type === "HKStateOfMind") {
+        // valence is -1..1; convert to 1..10 scale
+        const valenceStr = getAttr(line, "valence");
+        if (!valenceStr) continue;
+        const valence = parseFloat(valenceStr);
+        if (isNaN(valence)) continue;
+        const v = parseFloat((((valence + 1) / 2) * 9 + 1).toFixed(1));
+        data[type][day].sum += v;
+        data[type][day].count += 1;
       } else {
         const valueStr = getAttr(line, "value");
         if (!valueStr) continue;

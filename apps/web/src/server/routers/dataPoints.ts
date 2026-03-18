@@ -182,6 +182,98 @@ export const dataPointsRouter = router({
       return { inserted: points.length, metrics: userMetrics.length, days: input.days };
     }),
 
+  logStateOfMind: protectedProcedure
+    .input(
+      z.object({
+        value: z.number().min(1).max(10),
+        tags: z.array(z.string()).max(10).optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const userId = ctx.userId;
+
+      // Ensure the metric exists
+      let metric = await ctx.db.query.metrics.findFirst({
+        where: and(eq(metrics.userId, userId), eq(metrics.name, "State of Mind")),
+      });
+      if (!metric) {
+        const id = randomUUID();
+        await ctx.db.insert(metrics).values({
+          id,
+          userId,
+          name: "State of Mind",
+          unit: "/10",
+          color: "#a855f7",
+          description: "Daily emotional state (1 = very low, 10 = very high)",
+        });
+        const created = await ctx.db.query.metrics.findFirst({
+          where: eq(metrics.id, id),
+        });
+        metric = created!;
+      }
+
+      // Replace today's entry
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+
+      await ctx.db
+        .delete(dataPoints)
+        .where(
+          and(
+            eq(dataPoints.userId, userId),
+            eq(dataPoints.metricId, metric.id),
+            gte(dataPoints.time, today),
+            lte(dataPoints.time, tomorrow)
+          )
+        );
+
+      const logTime = new Date();
+      logTime.setHours(12, 0, 0, 0);
+
+      await ctx.db.insert(dataPoints).values({
+        time: logTime,
+        metricId: metric.id,
+        userId,
+        value: input.value,
+        notes: input.tags?.length ? input.tags.join(", ") : null,
+      });
+
+      return { metricId: metric.id };
+    }),
+
+  todayStateOfMind: protectedProcedure.query(async ({ ctx }) => {
+    const metric = await ctx.db.query.metrics.findFirst({
+      where: and(
+        eq(metrics.userId, ctx.userId),
+        eq(metrics.name, "State of Mind")
+      ),
+    });
+    if (!metric) return null;
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    const [row] = await ctx.db
+      .select()
+      .from(dataPoints)
+      .where(
+        and(
+          eq(dataPoints.userId, ctx.userId),
+          eq(dataPoints.metricId, metric.id),
+          gte(dataPoints.time, today),
+          lte(dataPoints.time, tomorrow)
+        )
+      )
+      .orderBy(desc(dataPoints.time))
+      .limit(1);
+
+    return row ?? null;
+  }),
+
   bulkInsert: protectedProcedure
     .input(
       z.object({
